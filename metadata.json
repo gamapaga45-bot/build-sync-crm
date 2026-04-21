@@ -1,0 +1,9 @@
+{
+  "name": "BuildSync CRM & Enterprise Portal",
+  "description": "Полномасштабная CRM-экосистема для застройщиков: 5-уровневый анализ рисков, интерактивный ассистент сценарного обучения, BIM-интеграция и клиентский портал.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}

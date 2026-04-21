@@ -1,0 +1,108 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile information and role",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string", "format": "uri" },
+        "role": { "type": "string", "enum": ["admin", "engineer", "supervisor", "foreman", "client", "manager"] }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Project": {
+      "title": "Project",
+      "description": "Construction project details",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "address": { "type": "string" },
+        "startDate": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["active", "completed", "on-hold"] },
+        "budget": { "type": "number" },
+        "spent": { "type": "number" },
+        "ownerId": { "type": "string" },
+        "members": { "type": "array", "items": { "type": "string" } },
+        "bimModelUrl": { "type": "string", "format": "uri" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "status", "budget", "ownerId"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "A specific construction task or issue",
+      "type": "object",
+      "properties": {
+        "projectId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "status": { "type": "string", "enum": ["todo", "in-progress", "review", "done", "error"] },
+        "priority": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+        "assignedTo": { "type": "string" },
+        "dueDate": { "type": "string", "format": "date-time" },
+        "photos": { "type": "array", "items": { "type": "string" } },
+        "isAcceptanceTask": { "type": "boolean" },
+        "errorType": { "type": "string", "enum": ["minor", "critical"] },
+        "fixDeadline": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["projectId", "title", "status", "priority"]
+    },
+    "Material": {
+      "title": "Material",
+      "description": "Construction material tracking",
+      "type": "object",
+      "properties": {
+        "projectId": { "type": "string" },
+        "name": { "type": "string" },
+        "unit": { "type": "string" },
+        "quantity": { "type": "number" },
+        "pricePerUnit": { "type": "number" },
+        "totalPrice": { "type": "number" },
+        "status": { "type": "string", "enum": ["ordered", "delivered", "used"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["projectId", "name", "quantity", "status"]
+    },
+    "Lead": {
+      "title": "Lead",
+      "description": "Sales lead or opportunity",
+      "type": "object",
+      "properties": {
+        "clientName": { "type": "string" },
+        "contactPerson": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "status": { "type": "string", "enum": ["new", "contacted", "qualified", "proposal", "negotiation", "closed-won", "closed-lost"] },
+        "estimatedValue": { "type": "number" },
+        "assignedTo": { "type": "string" }
+      },
+      "required": ["clientName", "status", "estimatedValue"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "UserProfile",
+      "description": "User profile documents"
+    },
+    "/projects/{projectId}": {
+      "schema": "Project",
+      "description": "Project documents"
+    },
+    "/projects/{projectId}/tasks/{taskId}": {
+      "schema": "Task",
+      "description": "Tasks within a project"
+    },
+    "/projects/{projectId}/materials/{materialId}": {
+      "schema": "Material",
+      "description": "Materials within a project"
+    },
+    "/leads/{leadId}": {
+      "schema": "Lead",
+      "description": "Sales leads and opportunities"
+    }
+  }
+}

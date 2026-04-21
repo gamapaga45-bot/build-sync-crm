@@ -1,0 +1,151 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: /users/{uid}
+// Fields:
+//   - uid: string (required)
+//   - email: string (required, email format)
+//   - displayName: string
+//   - photoURL: string (url format)
+//   - role: string (required, enum: engineer, supervisor, foreman, client)
+//
+// Collection: /projects/{projectId}
+// Fields:
+//   - name: string (required)
+//   - description: string
+//   - address: string
+//   - startDate: timestamp
+//   - status: string (enum: active, completed, on-hold)
+//   - budget: number (required)
+//   - spent: number
+//   - ownerId: string (required)
+//   - members: list (uids)
+//   - bimModelUrl: string
+//   - createdAt: timestamp
+//
+// Collection: /projects/{projectId}/tasks/{taskId}
+// Fields:
+//   - projectId: string (required)
+//   - title: string (required)
+//   - description: string
+//   - status: string (enum: todo, in-progress, review, done, error)
+//   - priority: string (enum: low, medium, high, critical)
+//   - assignedTo: string
+//   - dueDate: timestamp
+//   - photos: list (urls)
+//   - isAcceptanceTask: bool
+//   - errorType: string (enum: minor, critical)
+//   - fixDeadline: timestamp
+//   - createdAt: timestamp
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         (request.auth.token.email == "gamapaga45@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isProjectMember(projectId) {
+      return isAuthenticated() && 
+        (request.auth.uid == get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId ||
+         request.auth.uid in get(/databases/$(database)/documents/projects/$(projectId)).data.members);
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidUrl(url) {
+      return url is string && (url.matches("^https://.*") || url.matches("^http://.*"));
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'role']) &&
+             data.uid == request.auth.uid &&
+             isValidEmail(data.email) &&
+             data.role in ['admin', 'engineer', 'supervisor', 'foreman', 'client', 'manager'] &&
+             (!('photoURL' in data) || isValidUrl(data.photoURL)) &&
+             data.keys().hasOnly(['uid', 'email', 'role', 'displayName', 'photoURL']);
+    }
+
+    function isValidProject(data) {
+      return data.keys().hasAll(['name', 'status', 'budget', 'ownerId']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.status in ['active', 'completed', 'on-hold'] &&
+             data.budget is number && data.budget >= 0 &&
+             data.ownerId == request.auth.uid &&
+             (!('members' in data) || data.members is list) &&
+             data.keys().hasOnly(['name', 'description', 'address', 'startDate', 'status', 'budget', 'spent', 'ownerId', 'members', 'bimModelUrl', 'createdAt']);
+    }
+
+    function isValidTask(data) {
+      return data.keys().hasAll(['projectId', 'title', 'status', 'priority']) &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.status in ['todo', 'in-progress', 'review', 'done', 'error'] &&
+             data.priority in ['low', 'medium', 'high', 'critical'] &&
+             data.keys().hasOnly(['projectId', 'title', 'description', 'status', 'priority', 'assignedTo', 'dueDate', 'photos', 'isAcceptanceTask', 'errorType', 'fixDeadline', 'createdAt']);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) && 
+                    (request.resource.data.role == resource.data.role || isAdmin());
+    }
+
+    match /projects/{projectId} {
+      allow read: if isProjectMember(projectId);
+      allow create: if isAuthenticated() && isValidProject(request.resource.data);
+      allow update: if isProjectMember(projectId) && isValidProject(request.resource.data) &&
+                    request.resource.data.ownerId == resource.data.ownerId; // Owner cannot be changed
+      allow delete: if isAuthenticated() && request.auth.uid == resource.data.ownerId;
+
+      match /tasks/{taskId} {
+        allow read: if isProjectMember(projectId);
+        allow create: if isProjectMember(projectId) && isValidTask(request.resource.data);
+        allow update: if isProjectMember(projectId) && isValidTask(request.resource.data);
+        allow delete: if isProjectMember(projectId);
+      }
+
+      match /materials/{materialId} {
+        allow read: if isProjectMember(projectId);
+        allow write: if isProjectMember(projectId);
+      }
+    }
+
+    match /leads/{leadId} {
+      allow read: if isAuthenticated() && (isAdmin() || request.auth.uid == resource.data.assignedTo);
+      allow write: if isAuthenticated() && (isAdmin() || resource == null);
+    }
+
+    match /test/connection {
+      allow read: if true;
+    }
+  }
+}
